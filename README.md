@@ -1,19 +1,26 @@
 
-# Navegador estilo Waze — Demo
+# Waze Lite (GitHub Pages)
 
-Este pacote tem 3 variações:
+Site de navegação estilo Waze usando **Leaflet + Leaflet Routing Machine** e **Nominatim** para endereços.
 
-- `index.html` → versão completa (Home → Pré-rota → Navegação com velocímetro/ETA).
-- `alt/index_fix_visibility.html` → correção de visibilidade (garante que a folha de busca nunca fique atrás do mapa).
-- `alt/index_home_search_fix.html` → home com busca sempre visível + botão 🔎.
+## Estrutura
+- `index.html` — página principal
+- `assets/css/style.css` — estilos
+- `assets/js/app.js` — lógica da aplicação
+
+## Funcionalidades
+- Home com busca, **📍 Minha localização**, atalhos e **recentes**
+- **Autocomplete** de endereço (Nominatim)
+- Pré-rota com tempo/distância e botão **Ir agora**
+- Navegação em tempo real (usa GPS do celular)
+- **Voz** das instruções (speechSynthesis)
+- Velocímetro, **ETA**, distância restante
+- Botões: **Recentrar**, **Demo** (simulação), **Stop**
+- Camadas com `z-index` — os painéis SEMPRE ficam por cima do mapa
 
 ## Como publicar no GitHub Pages
-1. Crie um repositório (p.ex. `Navegador-Waze`).
-2. Faça upload do **index.html** (e da pasta `alt/` se quiser manter as alternativas).
-3. Em *Settings → Pages*, selecione a branch (geralmente `main`) e a pasta `/root`.
-4. Abra `https://SEU_USUARIO.github.io/NomeDoRepo/` no celular.
+1. Crie um repositório e suba estes arquivos.
+2. Em **Settings → Pages**, aponte para a branch (ex.: `main`) e `/root`.
+3. Abra a URL HTTPS do Pages no celular e permita a **Localização**.
 
-## Dicas
-- Permita **Localização** no navegador para origem automática.
-- O autocomplete usa **Nominatim (OpenStreetMap)**; se a rede bloquear, as sugestões podem não aparecer.
-- O roteamento usa **OSRM público**. Funções de "evitar pedágio" aqui são mock visuais.
+> OSRM público é compartilhado e pode ficar lento/fora — é normal. Se quiser estabilidade, hospede um servidor OSRM próprio ou troque pelo GraphHopper/Mapbox Directions.
