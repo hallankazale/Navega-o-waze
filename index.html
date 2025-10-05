@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Meu Navegador — estilo Waze (Home → Pré‑rota → Navegação)</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js" defer></script>
+
+<style>
+:root{
+  --bg:#f6f7fb; --ink:#0b1020; --muted:#6d7388; --card:#fff;
+  --blue:#198cff; --pink:#ff2ea6; --purple:#6c3cff;
+  --safeBot:env(safe-area-inset-bottom,12px);
+}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--ink);overflow:hidden}
+.view{position:absolute;inset:0;display:none}.view.active{display:block}
+#mapHome,#mapPreview,#mapNav{position:absolute;inset:0}
+.leaflet-routing-container{display:none} .route-purple path{stroke:var(--purple)!important}
+
+.toast{position:fixed;left:50%;top:10px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;z-index:100;display:none}
+
+/* HOME */
+.sheetHome{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -10px 24px rgba(0,0,0,.15);padding:10px 14px calc(12px + var(--safeBot));z-index:50}
+.homeSearch{display:flex;align-items:center;gap:10px;background:#f3f6ff;border:1px solid #e6e9f3;border-radius:40px;padding:8px 12px}
+.homeSearch input{flex:1;border:none;outline:none;background:transparent;font-size:16px}
+.sug{position:absolute;left:14px;right:14px;bottom:calc(280px + var(--safeBot));max-height:260px;overflow:auto;background:#fff;border:1px solid #e6e9f3;border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.15);display:none;z-index:60}
+.sug .item{padding:12px;border-bottom:1px solid #eef1f7;cursor:pointer}
+.chips{display:flex;gap:10px;overflow:auto;padding:10px 2px}
+.chip{min-width:120px;background:#fff;border:1px solid #eceef6;border-radius:14px;padding:12px 14px;box-shadow:0 6px 16px rgba(0,0,0,.08);font-weight:800;display:flex;gap:10px;align-items:center}
+.icon{width:22px;height:22px;border-radius:6px;background:#f1f3fb;display:grid;place-items:center}
+.groupTitle{color:#8a91a8;font-weight:800;margin:10px 2px 6px}
+.list{padding:0;margin:0;list-style:none}
+.itemRow{display:flex;justify-content:space-between;align-items:center;padding:12px 6px;border-bottom:1px solid #eef1f7}
+.itemRow small{color:#8a91a8}
+.primaryBtn{display:block;width:100%;margin-top:10px;background:var(--blue);color:#fff;border:none;border-radius:12px;padding:12px 16px;font-weight:900;font-size:16px}
+.fab{position:fixed;right:14px;bottom:calc(95px + var(--safeBot));width:56px;height:56px;border-radius:28px;border:none;background:var(--blue);color:#fff;font-size:22px;box-shadow:0 10px 24px rgba(0,0,0,.2);z-index:60}
+
+/* PREVIEW */
+.topbar{position:fixed;left:0;right:0;top:0;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.06);padding:10px;z-index:70;display:flex;align-items:center;gap:10px}
+.back{width:34px;height:34px;border-radius:10px;border:1px solid #eceef6;display:grid;place-items:center;background:#fff;cursor:pointer}
+.title{font-weight:800}.sub{font-size:12px;color:#8a91a8}
+.badge{position:fixed;left:16px;top:64px;background:#fff;border:1px solid #eceef6;border-radius:30px;padding:10px 14px;font-weight:800;display:flex;gap:8px;align-items:center;z-index:65}
+.sheetPreview{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;z-index:75;box-shadow:0 -10px 24px rgba(0,0,0,.15);padding:14px 14px calc(12px + var(--safeBot))}
+.sheetPreview .time{font-size:28px;font-weight:900;margin-top:4px}
+.desc{color:#79819c}
+.btns{display:flex;gap:10px;margin-top:12px}
+.btnLite{flex:1;padding:12px 14px;border-radius:14px;border:1px solid #e6e9f3;background:#eef2fb;font-weight:800;text-align:center;cursor:pointer}
+.btnLite.primary{background:var(--blue);color:#fff;border-color:#0c6bd6}
+.overlay{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(15,18,30,.85);color:#fff;border-radius:18px;padding:18px 22px;z-index:90;display:none}
+.spinner{width:44px;height:44px;border-radius:50%;border:6px solid rgba(255,255,255,.2);border-top-color:#4ad1ff;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* NAV */
+.navtop{position:fixed;left:0;right:0;top:0;color:#fff;background:#000;padding:8px 10px 10px;z-index:80}
+.next{display:flex;align-items:center;gap:12px}.turn-ico{width:28px;height:28px;border-radius:6px;background:#1b1b1b;display:grid;place-items:center}
+.next .dist{font-weight:900;font-size:28px;line-height:1}.next .street{color:#8bd0ff;font-weight:800;margin-top:2px}
+.speedo{position:fixed;left:12px;bottom:calc(120px + var(--safeBot));width:96px;height:96px;border-radius:50%;background:#fff;border:1px solid #e6e9f3;box-shadow:0 10px 24px rgba(0,0,0,.15);display:grid;place-items:center;z-index:85}
+.speedo .v{font-size:28px;font-weight:900}.speedo .u{font-size:12px;color:#7c86a5}
+.btnReport{position:fixed;right:12px;bottom:calc(120px + var(--safeBot));width:72px;height:72px;border-radius:28px;background:#fff;border:1px solid #e6e9f3;box-shadow:0 10px 24px rgba(0,0,0,.15);display:grid;place-items:center;z-index:85}
+.miniBar{position:fixed;left:8px;right:8px;bottom:calc(64px + var(--safeBot));background:#fff;border:1px solid #e6e9f3;border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.15);display:flex;gap:14px;justify-content:center;padding:10px 12px;font-weight:800;z-index:86}
+.miniBar .dot{width:5px;height:5px;border-radius:50%;background:#b8c2df;align-self:center}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- HOME -->
+<section id="home" class="view active">
+  <div id="mapHome"></div>
+  <button class="fab" id="openSearch">🔎</button>
+  <div class="sheetHome" id="homeSheet">
+    <div class="homeSearch">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15.5 15.5 20 20" stroke="#7987a3" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="6" stroke="#7987a3" stroke-width="2" fill="none"/></svg>
+      <input id="homeInput" placeholder="Para onde?" autocomplete="off">
+      <button class="btn" id="btnLoc">📍 Minha localização</button>
+    </div>
+
+    <div class="groupTitle">Atalhos</div>
+    <div class="chips">
+      <div class="chip" data-q="Casa, Brasil"><div class="icon">🏠</div><div><div>Casa</div><small id="chipHome">Definir uma vez e ir</small></div></div>
+      <div class="chip" data-q="Trabalho, Brasil"><div class="icon">🧳</div><div><div>Trabalho</div><small>Definir uma vez e ir</small></div></div>
+      <div class="chip" data-q="Posto de gasolina"><div class="icon">⛽</div><div>Posto</div></div>
+      <div class="chip" data-q="Restaurante"><div class="icon">🍔</div><div>Comida</div></div>
+      <div class="chip" data-q="Estacionamento"><div class="icon">🅿️</div><div>Estacionamento</div></div>
+    </div>
+
+    <div class="groupTitle">Recentes</div>
+    <ul class="list" id="recentList"></ul>
+
+    <button class="primaryBtn" id="btnCalcHome">Calcular rota</button>
+    <div class="sug" id="homeSug"></div>
+  </div>
+</section>
+
+<!-- PREVIEW -->
+<section id="preview" class="view">
+  <div id="mapPreview"></div>
+  <div class="topbar">
+    <div class="back" id="backHome"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="#0b1020" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div><div class="title" id="pvTitle">Seu local → —</div><div class="sub">Pré-visualização de rota</div></div>
+  </div>
+  <div class="badge"><div style="background:#eef2ff;border-radius:20px;padding:2px 8px">Evitar <b>1</b></div></div>
+  <div class="overlay" id="pvLoading"><div class="spinner"></div>Calculando rota…</div>
+  <div class="sheetPreview">
+    <div style="display:flex;justify-content:space-between"><span id="pvMiniTime">—</span><span id="pvMiniDist" style="color:#8a91a8;font-weight:800">—</span></div>
+    <div class="time" id="pvTime">—</div>
+    <div id="pvVia" style="font-weight:800;margin-top:6px">—</div>
+    <div class="desc">Melhor rota, Trânsito normal</div>
+    <div class="btns">
+      <div class="btnLite" id="btnLater">Sair depois</div>
+      <div class="btnLite primary" id="btnGo">Ir agora</div>
+    </div>
+  </div>
+</section>
+
+<!-- NAV -->
+<section id="nav" class="view">
+  <div id="mapNav"></div>
+  <div class="navtop">
+    <div class="next">
+      <div class="turn-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M6 4v5a3 3 0 0 0 3 3h5v4" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div><div class="dist" id="nvNextDist">—</div><div class="street" id="nvNextStreet">—</div></div>
+    </div>
+  </div>
+  <div class="speedo"><div class="v" id="nvSpd">0</div><div class="u">km/h</div></div>
+  <div class="btnReport">⚠️</div>
+  <div class="miniBar"><span id="nvMiniTime">—</span><span class="dot"></span><span id="nvMiniEta">—</span><span class="dot"></span><span id="nvMiniDist">—</span></div>
+</section>
+
+<script>
+const $=s=>document.querySelector(s);
+const toast=t=>{const el=$('#toast'); el.textContent=t; el.style.display='block'; setTimeout(()=>el.style.display='none',3000);};
+const NOMI_S=q=>`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=7&q=${encodeURIComponent(q)}`;
+const NOMI_R=(la,lo)=>`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${la}&lon=${lo}`;
+const kmfmt=m=>m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.max(1,Math.round(m))+' m';
+const durfmt=s=>{const h=Math.floor(s/3600),m=Math.round((s%3600)/60);return h?`${h} h ${m} min`:`${m} min`;};
+function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active'); setTimeout(()=>{if(id==='#home')mapHome.invalidateSize(); if(id==='#preview')mapPreview.invalidateSize(); if(id==='#nav')mapNav.invalidateSize();},100);}
+
+let mapHome,mapPreview,mapNav;
+function buildMaps(){
+  mapHome=L.map('mapHome',{zoomControl:false}).setView([-15.78,-47.93],5);
+  mapPreview=L.map('mapPreview',{zoomControl:false}).setView([-15.78,-47.93],13);
+  mapNav=L.map('mapNav',{zoomControl:false}).setView([-15.78,-47.93],15);
+  const tiles='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  [mapHome,mapPreview,mapNav].forEach(m=>L.tileLayer(tiles,{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(m));
+}
+
+let originLL=null, originLabel='Seu local', destLL=null, destLabel='—';
+let navCoords=[], navSteps=[], navIdx=0, navDist=0, navTime=0;
+let watchId=null;
+
+window.addEventListener('load',()=>{
+  if(!window.L){ toast('Falha ao carregar mapas.'); return; }
+  buildMaps();
+
+  $('#openSearch').addEventListener('click',()=>$('#homeInput').focus());
+
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async p=>{
+      originLL=L.latLng(p.coords.latitude,p.coords.longitude);
+      mapHome.setView(originLL,15);
+      try{const j=await fetch(NOMI_R(originLL.lat,originLL.lng)).then(r=>r.json()); originLabel=j.display_name?.split(',')[0]||'Seu local'; $('#chipHome').textContent=originLabel;}catch{}
+    },()=>{}, {enableHighAccuracy:true,timeout:8000,maximumAge:1000});
+  }
+
+  document.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click',()=>{
+    $('#homeInput').value=ch.dataset.q;
+    $('#btnCalcHome').click();
+  }));
+
+  const recentList=$('#recentList');
+  function loadRecent(){
+    const arr=JSON.parse(localStorage.getItem('recentDest')||'[]');
+    recentList.innerHTML=arr.slice(0,5).map(txt=>`<li class="itemRow"><div>${txt}</div><small>recente</small></li>`).join('');
+    recentList.querySelectorAll('.itemRow').forEach(li=>li.addEventListener('click',()=>{ $('#homeInput').value=li.firstChild.textContent; $('#btnCalcHome').click(); }));
+  }
+  function addRecent(txt){
+    let arr=JSON.parse(localStorage.getItem('recentDest')||'[]'); arr=[txt, ...arr.filter(x=>x!==txt)]; localStorage.setItem('recentDest', JSON.stringify(arr.slice(0,10))); loadRecent();
+  }
+  loadRecent();
+
+  const homeInput=$('#homeInput'), homeSug=$('#homeSug'); let lastRes=[], tt=null;
+  homeInput.addEventListener('input', ()=>{
+    const q=homeInput.value.trim(); if(tt) clearTimeout(tt);
+    if(!q){ homeSug.style.display='none'; return; }
+    tt=setTimeout(async ()=>{
+      try{
+        const arr=await fetch(NOMI_S(q),{headers:{'Accept-Language':'pt-BR'}}).then(r=>r.json());
+        lastRes=arr.map(o=>({label:o.display_name,lat:+o.lat,lon:+o.lon}));
+        homeSug.innerHTML=lastRes.map((o,i)=>`<div class="item" data-i="${i}"><b>${o.label.split(',')[0]}</b><div style="color:#7b86a6;font-size:12px">${o.label.split(',').slice(1).join(', ')}</div></div>`).join('');
+        homeSug.style.display=lastRes.length?'block':'none';
+      }catch{ homeSug.style.display='none'; }
+    },260);
+  });
+  homeSug.addEventListener('click', e=>{
+    const n=e.target.closest('.item'); if(!n) return;
+    const i=+n.dataset.i, pick=lastRes[i];
+    homeInput.value=pick.label; homeSug.style.display='none';
+    destLL=L.latLng(pick.lat,pick.lon); destLabel=pick.label; addRecent(destLabel); goPreview();
+  });
+  homeInput.addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnCalcHome').click(); });
+  $('#btnLoc').addEventListener('click', ()=>{
+    if(!navigator.geolocation) return alert('Ative/permita a Localização.');
+    navigator.geolocation.getCurrentPosition(async p=>{
+      originLL=L.latLng(p.coords.latitude,p.coords.longitude);
+      mapHome.setView(originLL,16);
+      try{const j=await fetch(NOMI_R(originLL.lat,originLL.lng)).then(r=>r.json()); originLabel=j.display_name?.split(',')[0]||'Seu local'; toast('Origem: '+originLabel);}catch{}
+    },()=>alert('Permita acesso ao GPS.'),{enableHighAccuracy:true,timeout:10000,maximumAge:1000});
+  });
+
+  $('#btnCalcHome').addEventListener('click', async ()=>{
+    const q=homeInput.value.trim(); if(!q) return alert('Digite um destino.');
+    if(!destLL){
+      const arr=await fetch(NOMI_S(q)).then(r=>r.json()).catch(()=>[]);
+      if(!arr[0]) return alert('Endereço não encontrado.');
+      destLL=L.latLng(+arr[0].lat,+arr[0].lon); destLabel=arr[0].display_name; addRecent(destLabel);
+    }
+    goPreview();
+  });
+
+  const routing=L.Routing.control({ router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'}), waypoints:[], show:false, lineOptions:{addWaypoints:false, styles:[{color:'#6c3cff',weight:7,opacity:.95,className:'route-purple'}]} }).addTo(mapPreview);
+  function goPreview(){
+    if(!originLL) originLL=mapHome.getCenter();
+    show('#preview'); $('#pvTitle').textContent=`${originLabel} → ${destLabel.split(',')[0]}`;
+    $('#pvLoading').style.display='block';
+    routing.setWaypoints([originLL,destLL]);
+  }
+  routing.on('routesfound', e=>{
+    $('#pvLoading').style.display='none';
+    const r=e.routes[0];
+    $('#pvMiniTime').textContent=durfmt(r.summary.totalTime||0);
+    $('#pvMiniDist').textContent=kmfmt(r.summary.totalDistance||0);
+    $('#pvTime').textContent=durfmt(r.summary.totalTime||0);
+    $('#pvVia').textContent=r.instructions?.[0]?.road || r.instructions?.[0]?.text?.split(',')[0] || 'Melhor rota';
+    mapPreview.fitBounds(L.latLngBounds(r.coordinates),{padding:[40,40]});
+  });
+  routing.on('routingerror', ()=>{ $('#pvLoading').style.display='none'; alert('Não foi possível calcular a rota.'); show('#home'); });
+  $('#backHome').addEventListener('click', ()=>show('#home'));
+  $('#btnLater').addEventListener('click', ()=>alert('Agendar depois (mock).'));
+
+  const routingNav=L.Routing.control({ router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'}), waypoints:[], show:false, lineOptions:{addWaypoints:false, styles:[{color:'#6c3cff',weight:7,opacity:.95,className:'route-purple'}]} }).addTo(mapNav);
+  $('#btnGo').addEventListener('click', ()=>{ show('#nav'); routingNav.setWaypoints([originLL,destLL]); setTimeout(()=>mapNav.invalidateSize(),100); });
+  routingNav.on('routesfound', e=>{
+    const r=e.routes[0]; navCoords=r.coordinates||[]; navSteps=r.instructions||[]; navIdx=0;
+    navDist=r.summary.totalDistance||0; navTime=r.summary.totalTime||0; updateHUD();
+    mapNav.fitBounds(L.latLngBounds(navCoords),{padding:[40,40]});
+    if(navigator.geolocation && !watchId){ watchId=navigator.geolocation.watchPosition(onGPS,()=>{}, {enableHighAccuracy:true,maximumAge:1000,timeout:8000}); }
+  });
+
+  function updateHUD(){
+    const cur=navSteps[navIdx];
+    const km=m=>m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.max(1,Math.round(m))+' m';
+    $('#nvNextDist').textContent=cur?km(cur.distance):'—';
+    $('#nvNextStreet').textContent=cur?.road || cur?.text?.split(',')[0] || '—';
+    $('#nvMiniTime').textContent=durfmt(navTime);
+    $('#nvMiniEta').textContent=new Date(Date.now()+navTime*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    $('#nvMiniDist').textContent=kmfmt(navDist);
+  }
+  function hav(a,b){const R=6371000,t=Math.PI/180,dl=(b.lat-a.lat)*t,do_=(b.lng-a.lng)*t,la1=a.lat*t,la2=b.lat*t,x=Math.sin(dl/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(do_/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(x)));}
+  function onGPS(pos){
+    const {latitude,longitude,speed}=pos.coords; const here=L.latLng(latitude,longitude);
+    mapNav.panTo(here,{animate:true,duration:0.25});
+    $('#nvSpd').textContent=Math.max(0,Math.round((speed||0)*3.6));
+    const end=navCoords[navCoords.length-1]; navDist=hav(here,end); const v=(typeof speed==='number'&&speed>1)?speed:16.6; navTime=Math.round(navDist/v); updateHUD();
+    const cur=navSteps[navIdx]; if(cur){ const tgt=navCoords[Math.min(cur.index||0,navCoords.length-1)];
+      if(hav(here,tgt)<25 && navIdx<navSteps.length-1){ navIdx++; updateHUD(); } }
+    if(navDist<30){ alert('Destino alcançado.'); }
+  }
+});
+</script>
+</body>
+</html>
